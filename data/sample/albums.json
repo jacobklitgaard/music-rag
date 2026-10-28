@@ -1,0 +1,14 @@
+[
+  { "artist": "Michael Jackson",           "title": "Off the Wall",             "wiki": "Off the Wall" },
+  { "artist": "Michael Jackson",           "title": "Thriller",                 "wiki": "Thriller (album)" },
+  { "artist": "The Brothers Johnson",      "title": "Light Up the Night",       "wiki": "Light Up the Night (The Brothers Johnson album)" },
+  { "artist": "Quincy Jones",              "title": "The Dude",                 "wiki": "The Dude (Quincy Jones album)" },
+  { "artist": "Stevie Wonder",             "title": "Songs in the Key of Life", "wiki": "Songs in the Key of Life" },
+  { "artist": "Chic",                      "title": "Risqué",                   "wiki": "Risqué (album)" },
+  { "artist": "Earth, Wind & Fire",        "title": "I Am",                     "wiki": "I Am (Earth, Wind & Fire album)" },
+  { "artist": "Level 42",                  "title": "World Machine",            "wiki": "World Machine" },
+  { "artist": "Prince and the Revolution", "title": "Purple Rain",              "wiki": "Purple Rain (album)" },
+  { "artist": "Toto",                      "title": "Toto IV",                  "wiki": "Toto IV" },
+  { "artist": "George Benson",             "title": "Give Me the Night",        "wiki": "Give Me the Night (album)" },
+  { "artist": "Marcus Miller",             "title": "The Sun Don't Lie",        "wiki": "The Sun Don't Lie" }
+]

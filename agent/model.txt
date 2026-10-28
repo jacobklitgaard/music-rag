@@ -1,0 +1,16 @@
+Agent:     The Crate Digger
+Builder:   n8n Agents builder (self-hosted n8n, version: TODO e.g. 2.4x.x)
+Provider:  OpenAI (base URL https://api.openai.com/v1)
+Model:     TODO – exact model name as selected in the Model field
+Memory:    session memory (default)
+
+Embeddings (used inside the music_search tool and the ingestion workflow, not by the agent itself):
+Provider:  Ollama (local)
+Model:     nomic-embed-text (768 dimensions)
+
+Why OpenAI and not a local Ollama chat model:
+The Agents builder talks to models through the OpenAI Responses API. Ollama's OpenAI-compatible
+endpoint only partly supports it: plain chat worked, but tool calls and conversation history failed
+with "unknown input item type: item_reference". An earlier version used n8n's AI Agent node with
+Ollama qwen2.5:7b, which worked but under-used the vector tool and does not meet the brief's
+requirement to use the Agents builder.

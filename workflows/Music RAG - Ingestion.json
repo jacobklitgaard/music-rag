@@ -1,0 +1,516 @@
+{
+  "name": "Music RAG - Ingestion",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        1616,
+        1232
+      ],
+      "id": "59440f05-59c4-4574-a269-d1bc1dce9697",
+      "name": "Start Ingestion"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:7474/db/music/query/v2",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{ \"statement\": \"MATCH (n) DETACH DELETE n\" }",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1840,
+        1232
+      ],
+      "id": "67a68ea4-445f-4e76-9149-8766e931b4e3",
+      "name": "Wipe Database",
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "C2g7m8jlYLg3IISP",
+          "name": "neo4j"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// The dataset: 12 bass-heavy funk/pop/soul albums from the 70s and 80s.\n// 'key' is our own ID that links the graph (MusicBrainz) and the text (Wikipedia).\n// 'wiki' is the exact English Wikipedia article title (search hit wrong pages).\nconst albums = [\n  ['Michael Jackson', 'Off the Wall', 'Off the Wall'],\n  ['Michael Jackson', 'Thriller', 'Thriller (album)'],\n  ['The Brothers Johnson', 'Light Up the Night', 'Light Up the Night (The Brothers Johnson album)'],\n  ['Quincy Jones', 'The Dude', 'The Dude (Quincy Jones album)'],\n  ['Stevie Wonder', 'Songs in the Key of Life', 'Songs in the Key of Life'],\n  ['Chic', 'Risqué', 'Risqué (album)'],\n  ['Earth, Wind & Fire', 'I Am', 'I Am (Earth, Wind & Fire album)'],\n  ['Level 42', 'World Machine', 'World Machine'],\n  ['Prince and the Revolution', 'Purple Rain', 'Purple Rain (album)'],\n  ['Toto', 'Toto IV', 'Toto IV'],\n  ['George Benson', 'Give Me the Night', 'Give Me the Night (album)'],\n  ['Marcus Miller', \"The Sun Don't Lie\", \"The Sun Don't Lie\"],\n];\nreturn albums.map(([artist, title, wiki]) => ({ json: { artist, title, wiki, key: `${artist} - ${title}` } }));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2064,
+        1232
+      ],
+      "id": "8a8dde8b-0e0e-45ca-adcf-39d7c5f33a67",
+      "name": "Album List"
+    },
+    {
+      "parameters": {
+        "url": "https://musicbrainz.org/ws/2/release/",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "query",
+              "value": "=releasegroup:\"{{ $json.title }}\" AND artist:\"{{ $json.artist }}\" AND status:official AND primarytype:album"
+            },
+            {
+              "name": "fmt",
+              "value": "json"
+            },
+            {
+              "name": "limit",
+              "value": "25"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "MusicRAG/1.0 (jacobklitgaardhansen@gmail.com)"
+            }
+          ]
+        },
+        "options": {
+          "batching": {
+            "batch": {
+              "batchSize": 1,
+              "batchInterval": 2000
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        2288,
+        1136
+      ],
+      "id": "490202a4-a6b7-45c0-b9a8-ee21e9daae06",
+      "name": "MB Search",
+      "retryOnFail": true,
+      "maxTries": 5,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "url": "=https://musicbrainz.org/ws/2/release/{{ $json.releases.filter(r => r.date).sort((a, b) => a.date.localeCompare(b.date))[0].id }}",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "inc",
+              "value": "artist-credits+labels+recordings+artist-rels+recording-level-rels+genres"
+            },
+            {
+              "name": "fmt",
+              "value": "json"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "MusicRAG/1.0 (jacobklitgaardhansen@gmail.com)"
+            }
+          ]
+        },
+        "options": {
+          "batching": {
+            "batch": {
+              "batchSize": 1,
+              "batchInterval": 2000
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        2512,
+        1136
+      ],
+      "id": "1076ea8f-5baa-423a-a507-68f4fdb7563a",
+      "name": "MB Credits",
+      "retryOnFail": true,
+      "maxTries": 5,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "jsCode": "// Normalize instrument names from MusicBrainz\nconst norm = (s) => {\n  s = s.toLowerCase();\n  if (/bass guitar|^bass$|double bass|contrabass/.test(s)) return 'bass';\n  if (/guitar/.test(s)) return 'guitar';\n  if (/drum|percussion|conga|tambourine/.test(s)) return 'drums/percussion';\n  if (/synth|keyboard|piano|rhodes|organ|clavinet/.test(s)) return 'keys';\n  if (/vocal/.test(s)) return 'vocals';\n  if (/trumpet|flugelhorn|trombone|horn/.test(s)) return 'horns';\n  if (/sax/.test(s)) return 'saxophone';\n  return s;\n};\n\nconst sources = $('Album List').all();\nconst rows = [];\n$input.all().forEach((item, idx) => {\n  const r = item.json;\n  const src = sources[idx].json;\n  const mainArtist = r['artist-credit']?.[0]?.artist;\n\n  const album = {\n    mbid: r.id,\n    key: src.key,\n    title: src.title,\n    year: r.date ? parseInt(r.date.slice(0, 4)) : null,\n    artist: mainArtist ? { mbid: mainArtist.id, name: mainArtist.name } : null,\n    label: r['label-info']?.[0]?.label?.name ?? null,\n    genres: (r.genres || []).map(g => g.name),\n  };\n\n  // Collect credits from release and track level, deduplicated\n  const credits = new Map();\n  const add = (rel) => {\n    if (rel['target-type'] !== 'artist' || !rel.artist) return;\n    const a = { mbid: rel.artist.id, name: rel.artist.name };\n    if (rel.type === 'producer') {\n      credits.set(`${a.mbid}|producer`, { ...a, role: 'producer', instrument: null });\n    } else if (rel.type === 'instrument' || rel.type === 'vocal') {\n      const list = rel.attributes?.length ? rel.attributes : [rel.type === 'vocal' ? 'vocals' : 'unknown'];\n      for (const ins of list) {\n        const i = norm(ins);\n        credits.set(`${a.mbid}|played|${i}`, { ...a, role: 'played', instrument: i });\n      }\n    }\n  };\n  (r.relations || []).forEach(add);\n  for (const m of r.media || [])\n    for (const t of m.tracks || [])\n      (t.recording?.relations || []).forEach(add);\n\n  rows.push({ album, credits: [...credits.values()] });\n});\n\n// One single request/transaction for all albums.\n// Parallel requests MERGE'ing the same shared artists (e.g. Quincy Jones) deadlock in Neo4j.\nconst statement = `\nUNWIND $rows AS row\nWITH row, row.album AS a\nMERGE (al:Album {mbid: a.mbid})\n  SET al.title = a.title, al.key = a.key, al.year = a.year\nFOREACH (_ IN CASE WHEN a.artist IS NULL THEN [] ELSE [1] END |\n  MERGE (ar:Artist {mbid: a.artist.mbid}) SET ar.name = a.artist.name\n  MERGE (al)-[:BY]->(ar))\nFOREACH (_ IN CASE WHEN a.label IS NULL THEN [] ELSE [1] END |\n  MERGE (l:Label {name: a.label}) MERGE (al)-[:ON_LABEL]->(l))\nFOREACH (g IN a.genres |\n  MERGE (ge:Genre {name: g}) MERGE (al)-[:HAS_GENRE]->(ge))\nWITH al, row\nUNWIND row.credits AS c\nMERGE (p:Artist {mbid: c.mbid}) SET p.name = c.name\nFOREACH (_ IN CASE WHEN c.role = 'producer' THEN [1] ELSE [] END |\n  MERGE (al)-[:PRODUCED_BY]->(p))\nFOREACH (_ IN CASE WHEN c.role = 'played' THEN [1] ELSE [] END |\n  MERGE (p)-[:PLAYED_ON {instrument: c.instrument}]->(al))`;\n\nreturn [{ json: {\n  summary: rows.map(r => `${r.album.title}: ${r.credits.length} credits`),\n  statement,\n  parameters: { rows },\n}}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2736,
+        1136
+      ],
+      "id": "5d052bc1-11b6-43d7-b14a-da11a929e56b",
+      "name": "Build Graph Cypher"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:7474/db/music/query/v2",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"statement\": {{ JSON.stringify($json.statement) }},\n  \"parameters\": {{ JSON.stringify($json.parameters) }}\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        2960,
+        1136
+      ],
+      "id": "f603b637-801a-4f0b-a8de-7f908a4955d2",
+      "name": "Neo4j Save Graph",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "C2g7m8jlYLg3IISP",
+          "name": "neo4j"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "https://en.wikipedia.org/w/api.php",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "action",
+              "value": "query"
+            },
+            {
+              "name": "titles",
+              "value": "={{ $json.wiki }}"
+            },
+            {
+              "name": "prop",
+              "value": "extracts|info"
+            },
+            {
+              "name": "explaintext",
+              "value": "1"
+            },
+            {
+              "name": "inprop",
+              "value": "url"
+            },
+            {
+              "name": "redirects",
+              "value": "1"
+            },
+            {
+              "name": "format",
+              "value": "json"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "MusicRAG/1.0 (jacobklitgaardhansen@gmail.com)"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        2288,
+        1328
+      ],
+      "id": "f64c5434-ed10-44a5-a92b-2c6bbf72c325",
+      "name": "Wikipedia Fetch"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Chunk Wikipedia articles by their own section structure.\n// Sections that duplicate the graph or add noise are skipped.\nconst SKIP = /^(references|external links|track listing|personnel|credits|charts|certifications|notes|see also|further reading|release history|accolades|sales)/i;\nconst MAX = 1000, STEP = 900; // 100 chars overlap for long sections\n\nconst sources = $('Album List').all();\nconst out = [];\n$input.all().forEach((item, idx) => {\n  const src = sources[idx].json;\n  const page = Object.values(item.json.query?.pages || {})[0];\n  if (!page?.extract) return;\n\n  // split on '== Heading ==' lines -> [intro, '==', 'Heading', body, '===', 'Sub', body, ...]\n  const parts = page.extract.split(/\\n(={2,})\\s*(.+?)\\s*\\1\\n/);\n  const sections = [{ level: 2, title: 'Introduction', body: parts[0] }];\n  for (let i = 1; i < parts.length; i += 3)\n    sections.push({ level: parts[i].length, title: parts[i + 1], body: parts[i + 2] || '' });\n\n  let skipping = false, n = 0;\n  for (const s of sections) {\n    if (s.level === 2) skipping = SKIP.test(s.title);\n    if (skipping) continue;\n    const text = s.body.trim();\n    if (text.length < 100) continue;\n    for (let i = 0; i < text.length; i += STEP) {\n      out.push({ json: {\n        id: `${src.key}#${n++}`,\n        key: src.key,\n        album: src.title,\n        artist: src.artist,\n        section: s.title,\n        source: page.fullurl,\n        // prefix gives each chunk context about which album it belongs to\n        text: `${src.artist} - ${src.title} (${s.title}): ${text.slice(i, i + MAX)}`,\n      }});\n    }\n  }\n});\nreturn out;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2512,
+        1328
+      ],
+      "id": "cff29426-c979-4a6f-9174-daf9e30a1d9c",
+      "name": "Chunk"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:11434/api/embed",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"nomic-embed-text\",\n  \"input\": {{ JSON.stringify($json.text) }}\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        2736,
+        1328
+      ],
+      "id": "71f96c92-493f-48be-bc4d-ad69bde3bd7b",
+      "name": "Embed"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:7474/db/music/query/v2",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"statement\": \"UNWIND $rows AS r MERGE (c:Chunk {id: r.id}) SET c.text = r.text, c.section = r.section, c.source = r.source, c.album = r.album, c.artist = r.artist WITH c, r CALL db.create.setNodeVectorProperty(c, 'embedding', r.embedding) WITH c, r OPTIONAL MATCH (al:Album {key: r.key}) FOREACH (_ IN CASE WHEN al IS NULL THEN [] ELSE [1] END | MERGE (c)-[:ABOUT]->(al))\",\n  \"parameters\": {{ JSON.stringify({ rows: $json.rows }) }}\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        3184,
+        1328
+      ],
+      "id": "16ec8b59-e25f-4b68-95ac-1baed41469ab",
+      "name": "Neo4j Save Chunk",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "C2g7m8jlYLg3IISP",
+          "name": "neo4j"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Combine every chunk + its embedding into one list,\n// so Neo4j gets a single request (no parallel writes -> no deadlocks).\nconst chunks = $('Chunk').all();\nconst rows = $input.all().map((item, i) => ({\n  ...chunks[i].json,\n  embedding: item.json.embeddings[0],\n}));\nreturn [{ json: { chunk_count: rows.length, rows } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2960,
+        1328
+      ],
+      "id": "425d0077-0770-4956-8ee8-b8b195e257f3",
+      "name": "Collect Chunks"
+    },
+    {
+      "parameters": {
+        "content": "## Music RAG – Ingestion\n**Loads one dataset into two databases in the same Neo4j instance (`music`).**\n\n- **Graph** (top branch): structured credits from the **MusicBrainz API** → *what is connected*\n- **Vector** (bottom branch): descriptive text from the **Wikipedia API** → *what is similar*\n- Both are linked by `(:Chunk)-[:ABOUT]->(:Album)` via our own `key` (\"Artist - Title\")\n\n**Run order:** Wipe → Album List → graph branch first (albums must exist before chunks link to them, `executionOrder v1` runs the top branch first) → vector branch.\n\n**Wipe Database** deletes all nodes so a re-run never creates duplicates. Constraints and the vector index survive.",
+        "height": 300,
+        "width": 660,
+        "color": 7
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1488,
+        800
+      ],
+      "id": "6f96e054-7c47-43c9-8461-b9d813414747",
+      "name": "Note: Overview"
+    },
+    {
+      "parameters": {
+        "content": "### Graph branch – MusicBrainz\n1. **MB Search** – searches the *release group* (album as a work), official albums only, up to 25 editions\n2. **MB Credits** – picks the **earliest** official release (the original, not a reissue) and fetches `artist-rels + recording-level-rels` (producers + musicians per track)\n3. **Build Graph Cypher** – AI-assisted Code node:\n   - collects credits from release AND track level, deduplicated\n   - **normalises** instruments (`electric bass guitar` → `bass`)\n   - one `Artist` label for people and bands, keyed on MusicBrainz `mbid`\n   - outputs ONE parameterised `UNWIND $rows` statement\n4. **Neo4j Save Graph** – Query API (`/db/music/query/v2`)\n\n**Rate limit:** MusicBrainz allows 1 req/s → batching 1 item / 2000 ms + retry on fail.\n**Deadlock fix:** all albums in ONE transaction. Parallel requests MERGE'd the same shared artists (Quincy Jones) and deadlocked.\n\n**Schema:** `(Album)-[:BY]->(Artist)`, `(Album)-[:PRODUCED_BY]->(Artist)`, `(Artist)-[:PLAYED_ON {instrument}]->(Album)`, `(Album)-[:HAS_GENRE]->(Genre)`, `(Album)-[:ON_LABEL]->(Label)`",
+        "height": 360,
+        "width": 760,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        2304,
+        736
+      ],
+      "id": "f9e9c6f9-7b50-449f-a79e-3f02858ad75e",
+      "name": "Note: Graph branch"
+    },
+    {
+      "parameters": {
+        "content": "### Vector branch – Wikipedia\n1. **Wikipedia Fetch** – full plain-text article by **exact title** (search hit wrong pages: an EP, a band page, a debut album)\n2. **Chunk** – splits by the article's **own sections**; max 1000 chars, 100 overlap. Skips Personnel, Track listing, References etc. (already in the graph, or noise). Each chunk is prefixed \"Artist - Album (Section):\" for context.\n3. **Embed** – Ollama `nomic-embed-text` → 768-dim vector\n4. **Collect Chunks** – all chunks in one list\n5. **Neo4j Save Chunk** – one transaction: `MERGE (:Chunk)`, metadata (`source`, `section`, `album`), vector property, `ABOUT` link\n\nVector index: `chunk_embeddings`, 768 dimensions, cosine.",
+        "height": 300,
+        "width": 760,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        2288,
+        1552
+      ],
+      "id": "7a79a7d1-8a27-42a0-bb06-c94449b549e3",
+      "name": "Note: Vector branch"
+    },
+    {
+      "parameters": {
+        "content": "### Known data issues\n- **Risqué** (0 credits) and **I Am** (1) – MusicBrainz has almost no credits for them. They still have producers + full Wikipedia text, so the vector side covers them.\n- **Toto IV** lists Bruce Dickinson as producer – a reissue producer credit stored at track level in MusicBrainz.\n\nVerify after a run:\n```\nMATCH (c:Chunk) OPTIONAL MATCH (c)-[:ABOUT]->(a:Album)\nRETURN c.album, count(c), count(a)\n```",
+        "height": 268,
+        "width": 676,
+        "color": 3
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        3408,
+        1584
+      ],
+      "id": "1d7f863c-87a9-422f-868c-3e020b200041",
+      "name": "Note: Known data issues"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Start Ingestion": {
+      "main": [
+        [
+          {
+            "node": "Wipe Database",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wipe Database": {
+      "main": [
+        [
+          {
+            "node": "Album List",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Album List": {
+      "main": [
+        [
+          {
+            "node": "MB Search",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Wikipedia Fetch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MB Search": {
+      "main": [
+        [
+          {
+            "node": "MB Credits",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MB Credits": {
+      "main": [
+        [
+          {
+            "node": "Build Graph Cypher",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Graph Cypher": {
+      "main": [
+        [
+          {
+            "node": "Neo4j Save Graph",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wikipedia Fetch": {
+      "main": [
+        [
+          {
+            "node": "Chunk",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Chunk": {
+      "main": [
+        [
+          {
+            "node": "Embed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embed": {
+      "main": [
+        [
+          {
+            "node": "Collect Chunks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Collect Chunks": {
+      "main": [
+        [
+          {
+            "node": "Neo4j Save Chunk",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "9d562a76-2549-4204-91a0-63fe1f5a713c",
+  "meta": {
+    "instanceId": "244e36795973ec6924748198112b0fed5d19b8f4e801b0ca8e03d1a94aa7b070"
+  },
+  "nodeGroups": [],
+  "id": "lc2u8ucAbmlYsGzK",
+  "tags": []
+}

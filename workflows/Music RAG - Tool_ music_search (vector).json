@@ -1,0 +1,145 @@
+{
+  "name": "Music RAG - Tool: music_search (vector)",
+  "nodes": [
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "question"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "40d5433f-6c9f-4181-9cb9-1d21458c4ff4",
+      "name": "When Executed by Another Workflow"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:11434/api/embed",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"nomic-embed-text\",\n  \"input\": {{ JSON.stringify($json.question) }}\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        224,
+        0
+      ],
+      "id": "cb1237ae-ff1a-44ec-bcfb-01af4ee6dbaf",
+      "name": "Embed Question"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:7474/db/music/query/v2",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"statement\": \"CALL db.index.vector.queryNodes('chunk_embeddings', 5, $embedding) YIELD node, score RETURN node.artist AS artist, node.album AS album, node.section AS section, node.source AS source, node.text AS text, score\",\n  \"parameters\": { \"embedding\": {{ JSON.stringify($json.embeddings[0]) }} }\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        448,
+        0
+      ],
+      "id": "b8f04803-db1b-4585-a544-2d95fb13f6b1",
+      "name": "Neo4j Vector Search",
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "C2g7m8jlYLg3IISP",
+          "name": "neo4j"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Turn Neo4j Query API rows into one compact text block for the LLM.\n// Each hit keeps its source URL so the agent can cite it.\nconst d = $input.first().json.data;\nconst rows = d.values.map(v => Object.fromEntries(d.fields.map((f, i) => [f, v[i]])));\nconst result = rows.map((r, i) =>\n  `[${i + 1}] ${r.artist} - ${r.album} | section: ${r.section} | score: ${r.score.toFixed(3)} | source: ${r.source}\\n${r.text}`\n).join('\\n\\n');\nreturn [{ json: { result: result || 'No matching text found.' } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        672,
+        0
+      ],
+      "id": "0ee7b2aa-43fe-4b36-9948-6cce96bee83b",
+      "name": "Format Results"
+    },
+    {
+      "parameters": {
+        "content": "## Tool: music_search (vector RAG)\n**Finds text by meaning** – sound, style, recording history, reception.\n\n1. **Trigger** – called by the agent with `question`\n2. **Embed Question** – same model as ingestion (`nomic-embed-text`); vectors from different models can't be compared\n3. **Neo4j Vector Search** – `db.index.vector.queryNodes('chunk_embeddings', 5, $embedding)` → top 5 chunks + cosine score\n4. **Format Results** – one compact text block per hit: artist, album, section, score, **source URL** (so the agent can cite)\n\nExample: *\"an album with a heavy slap bass sound\"* finds chunks without the words matching exactly.",
+        "height": 300,
+        "width": 700,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -16,
+        -400
+      ],
+      "id": "d17de54f-5e33-4bc8-adae-bd976be4da07",
+      "name": "Note: music_search"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "node": "Embed Question",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embed Question": {
+      "main": [
+        [
+          {
+            "node": "Neo4j Vector Search",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Neo4j Vector Search": {
+      "main": [
+        [
+          {
+            "node": "Format Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "cfd58000-97ee-4395-a650-39df219c9a53",
+  "meta": {
+    "instanceId": "244e36795973ec6924748198112b0fed5d19b8f4e801b0ca8e03d1a94aa7b070"
+  },
+  "nodeGroups": [],
+  "id": "myNO7YE7dyN2zsdD",
+  "tags": []
+}

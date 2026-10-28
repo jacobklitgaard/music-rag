@@ -1,0 +1,116 @@
+{
+  "name": "Music RAG - Tool: music_graph (graph)",
+  "nodes": [
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "name"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "79cfc651-1302-4872-84d2-74af69ce4a1c",
+      "name": "When Executed by Another Workflow"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:7474/db/music/query/v2",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"statement\": \"MATCH (n) WHERE (n:Album AND toLower(n.title) CONTAINS toLower($name)) OR (n:Artist AND toLower(n.name) CONTAINS toLower($name)) OR (n:Genre AND toLower(n.name) = toLower($name)) OR (n:Label AND toLower(n.name) CONTAINS toLower($name)) MATCH (n)-[r]-(m) WHERE NOT m:Chunk WITH startNode(r) AS s, r, endNode(r) AS e RETURN DISTINCT coalesce(s.title + ' (' + s.year + ')', s.name) AS from, type(r) + coalesce(' [' + r.instrument + ']', '') AS relation, coalesce(e.title + ' (' + e.year + ')', e.name) AS to ORDER BY relation, from LIMIT 150\",\n  \"parameters\": { \"name\": {{ JSON.stringify($json.name) }} }\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        224,
+        0
+      ],
+      "id": "162708e7-8e81-485c-871c-f7121d4b35b0",
+      "name": "Neo4j Graph Lookup",
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "C2g7m8jlYLg3IISP",
+          "name": "neo4j"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Turn graph rows into simple facts: 'Louis Johnson -PLAYED_ON [bass]-> Thriller (1982)'\nconst d = $input.first().json.data;\nconst facts = d.values.map(([from, relation, to]) => `${from} -${relation}-> ${to}`);\nreturn [{ json: { result: facts.length ? facts.join('\\n') : `No graph data found for \"${$('When Executed by Another Workflow').first().json.name}\".` } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        448,
+        0
+      ],
+      "id": "ccf69399-9f5f-432c-83ae-a1cf073ba187",
+      "name": "Format Facts"
+    },
+    {
+      "parameters": {
+        "content": "## Tool: music_graph (graph RAG)\n**Finds what is connected** – producers, musicians + instruments, artists, genres, labels.\n\n1. **Trigger** – called by the agent with `name` (one album, artist, genre or label)\n2. **Neo4j Graph Lookup** – a **fixed, parameterised** Cypher query: finds the node(s) by name (case-insensitive) and returns every relationship except chunks\n3. **Format Facts** – one fact per line, e.g. `Louis Johnson -PLAYED_ON [bass]-> Thriller (1982)`\n\n**Why not let the LLM write Cypher?** Safer (read-only, no injection) and far more reliable with a small local model. Multi-hop questions are solved by the agent chaining calls: `music_graph(\"Quincy Jones\")` → albums → `music_graph(\"Thriller\")`.",
+        "height": 320,
+        "width": 700,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -656,
+        -352
+      ],
+      "id": "ad000da2-4e06-4689-8d17-7f61093941e2",
+      "name": "Note: music_graph"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "node": "Neo4j Graph Lookup",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Neo4j Graph Lookup": {
+      "main": [
+        [
+          {
+            "node": "Format Facts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "6b9ba886-66ed-4a75-bdc7-6f6d372af8f7",
+  "meta": {
+    "instanceId": "244e36795973ec6924748198112b0fed5d19b8f4e801b0ca8e03d1a94aa7b070"
+  },
+  "nodeGroups": [],
+  "id": "ff1QrBVtcXyT9jGq",
+  "tags": []
+}
