@@ -1,0 +1,41 @@
+from_label,from,relationship,instrument,to_label,to
+Album,The Dude,BY,null,Artist,Quincy Jones
+Album,Thriller,BY,null,Artist,Michael Jackson
+Album,The Dude,ON_LABEL,null,Label,A&M Records
+Album,Thriller,ON_LABEL,null,Label,Epic
+Artist,Becky Lopez,PLAYED_ON,vocals,Album,Thriller
+Artist,"Bill Reichenbach, Jr.",PLAYED_ON,horns,Album,The Dude
+Artist,"Bill Reichenbach, Jr.",PLAYED_ON,horns,Album,Thriller
+Artist,Bill Wolfer,PLAYED_ON,keys,Album,Thriller
+Artist,Brian Banks,PLAYED_ON,keys,Album,Thriller
+Artist,Bunny Hull,PLAYED_ON,vocals,Album,Thriller
+Artist,Charles May,PLAYED_ON,vocals,Album,The Dude
+Artist,Chris Shepard,PLAYED_ON,vibraslap,Album,Thriller
+Artist,Chuck Findley,PLAYED_ON,horns,Album,The Dude
+Artist,Craig Huxley,PLAYED_ON,keys,Album,The Dude
+Artist,David Paich,PLAYED_ON,keys,Album,Thriller
+Artist,David Walter Foster,PLAYED_ON,keys,Album,Thriller
+Artist,David Walter Foster,PLAYED_ON,keys,Album,The Dude
+Artist,David Williams,PLAYED_ON,guitar,Album,Thriller
+Artist,David “Hawk” Wolinski,PLAYED_ON,keys,Album,The Dude
+Artist,Dean Parks,PLAYED_ON,guitar,Album,Thriller
+Artist,Edward Van Halen,PLAYED_ON,solo,Album,Thriller
+Artist,Edward Van Halen,PLAYED_ON,guitar,Album,Thriller
+Artist,Ernie Watts,PLAYED_ON,saxophone,Album,The Dude
+Artist,Gary Grant,PLAYED_ON,horns,Album,Thriller
+Artist,Gerald Vinci,PLAYED_ON,violin,Album,Thriller
+Artist,Greg Phillinganes,PLAYED_ON,keys,Album,The Dude
+Artist,Greg Phillinganes,PLAYED_ON,handclaps,Album,Thriller
+Artist,Greg Phillinganes,PLAYED_ON,keys,Album,Thriller
+Artist,Greg Smith,PLAYED_ON,keys,Album,Thriller
+Artist,Herbie Hancock,PLAYED_ON,keys,Album,The Dude
+Artist,Howard Hewett,PLAYED_ON,vocals,Album,Thriller
+Artist,Howard Hewett,PLAYED_ON,additional,Album,Thriller
+Artist,Ian Underwood,PLAYED_ON,keys,Album,The Dude
+Artist,James Ingram,PLAYED_ON,keys,Album,Thriller
+Artist,James Ingram,PLAYED_ON,additional,Album,Thriller
+Artist,James Ingram,PLAYED_ON,handclaps,Album,Thriller
+Artist,James Ingram,PLAYED_ON,vocals,Album,The Dude
+Artist,James Ingram,PLAYED_ON,vocals,Album,Thriller
+Artist,Janet Jackson,PLAYED_ON,vocals,Album,Thriller
+Artist,Jeff Porcaro,PLAYED_ON,drums/percussion,Album,Thriller
