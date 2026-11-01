@@ -1,0 +1,116 @@
+{
+  "name": "Music RAG - Tool: music_graph v2",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Tool: music_graph (graph RAG)\n**Finds what is connected** – producers, musicians + instruments, artists, genres, labels.\n\n1. **Trigger** – called by the agent with `name` (one album, artist, genre or label)\n2. **Neo4j Graph Lookup** – a **fixed, parameterised** Cypher query: finds the node(s) by name (case-insensitive) and returns every relationship except chunks\n3. **Format Facts** – one fact per line, e.g. `Louis Johnson -PLAYED_ON [bass]-> Thriller (1982)`\n\n**Why not let the LLM write Cypher?** Safer (read-only, no injection) and far more reliable with a small local model. Multi-hop questions are solved by the agent chaining calls: `music_graph(\"Quincy Jones\")` → albums → `music_graph(\"Thriller\")`.",
+        "height": 320,
+        "width": 700,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -656,
+        -352
+      ],
+      "id": "ad000da2-4e06-4689-8d17-7f61093941e2",
+      "name": "Note: music_graph"
+    },
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "name"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -304,
+        32
+      ],
+      "id": "019ac16c-44d8-4cf3-84c5-80e990d390e0",
+      "name": "When Executed by Another Workflow"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:7474/db/music/query/v2",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"statement\": \"MATCH (n) WHERE (n:Album AND toLower(n.title) CONTAINS toLower($name)) OR (n:Artist AND toLower(n.name) CONTAINS toLower($name)) OR (n:Genre AND toLower(n.name) = toLower($name)) OR (n:Label AND toLower(n.name) CONTAINS toLower($name)) MATCH (n)-[r]-(m) WHERE NOT m:Chunk WITH startNode(r) AS s, r, endNode(r) AS e RETURN DISTINCT coalesce(s.title + ' (' + s.year + ')', s.name) AS from, type(r) + coalesce(' [' + r.instrument + ']', '') AS relation, coalesce(e.title + ' (' + e.year + ')', e.name) AS to, coalesce(CASE WHEN s:Album THEN s.mbid END, CASE WHEN e:Album THEN e.mbid END) AS album_mbid ORDER BY relation, from LIMIT 150\",\n  \"parameters\": { \"name\": {{ JSON.stringify(String($json.name ?? $json.query ?? $json.input ?? Object.values($json)[0] ?? '')) }} }\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        -80,
+        32
+      ],
+      "id": "b46f5466-6187-4702-ad90-39b6b6d6840a",
+      "name": "Neo4j Graph Lookup",
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "C2g7m8jlYLg3IISP",
+          "name": "neo4j"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Graph facts + the MusicBrainz release pages they come from\nconst d = $input.first().json.data;\nconst rows = d.values.map(v => Object.fromEntries(d.fields.map((f, i) => [f, v[i]])));\nconst facts = rows.map(r => `${r.from} -${r.relation}-> ${r.to}`);\nconst sources = [...new Set(rows.map(r => r.album_mbid).filter(Boolean))]\n  .map(id => `https://musicbrainz.org/release/${id}`);\nconst input = $('When Executed by Another Workflow').first().json;\nreturn [{ json: { result: facts.length\n  ? `Graph facts (MusicBrainz):\\n${facts.join('\\n')}\\n\\nSources:\\n${sources.join('\\n')}`\n  : `No graph data found for \"${input.name ?? JSON.stringify(input)}\". Try a single album title or artist name.` } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        144,
+        32
+      ],
+      "id": "c023f602-44a6-4c02-b05a-c0ed3edbb97a",
+      "name": "Format Facts"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "node": "Neo4j Graph Lookup",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Neo4j Graph Lookup": {
+      "main": [
+        [
+          {
+            "node": "Format Facts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "39853ec9-c551-4fd9-bad0-1c5ec37ea11b",
+  "meta": {
+    "instanceId": "244e36795973ec6924748198112b0fed5d19b8f4e801b0ca8e03d1a94aa7b070"
+  },
+  "nodeGroups": [],
+  "id": "ff1QrBVtcXyT9jGq",
+  "tags": []
+}
