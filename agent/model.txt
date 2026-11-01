@@ -1,5 +1,5 @@
 Agent:     The Crate Digger
-Builder:   n8n Agents builder (self-hosted n8n in Docker)
+Builder:   n8n Agents builder (self-hosted n8n 2.44.5 in Docker)
 Provider:  OpenAI (credential "OpenAI account 5", base URL https://api.openai.com/v1)
 Model:     GPT-5.6 Terra
 Memory:    session memory (always on); cross-session memory off

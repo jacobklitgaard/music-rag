@@ -5,7 +5,7 @@
 | Component | Version / note |
 |---|---|
 | Neo4j | Neo4j Desktop 2 with a local instance (tested on Neo4j 2026.10.0). Multiple databases are needed for `music`. |
-| n8n | Self-hosted in Docker, **2.32.3 or later** (Agents builder). TODO: your version |
+| n8n | Self-hosted in Docker, **2.32.3 or later** for the Agents builder (built and tested on **2.44.5**) |
 | Ollama | Running locally with `nomic-embed-text` |
 | OpenAI | API key for the agent's model |
 
