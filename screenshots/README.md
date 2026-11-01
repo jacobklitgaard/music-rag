@@ -1,20 +1,12 @@
 # Screenshots
 
-TODO: add these files (macOS: Cmd+Shift+4 and drag a region). Make each workflow readable: zoom so node names and sticky notes can be read.
-
 | File | Shows |
 |---|---|
-| `01-ingestion.png` | **Data ingestion** workflow, whole canvas with sticky notes |
-| `02-tool-music-search.png` | **Vector retrieval** tool workflow |
-| `03-tool-music-graph.png` | **Graph retrieval** tool workflow |
-| `04-agent-config.png` | Agents builder: model + instructions |
-| `05-agent-tools.png` | Agents builder: the two connected workflow tools (and skills, if used) |
-| `06-neo4j-graph.png` | Neo4j Query: e.g. the Quincy Jones network (query in [`../setup/export-sample.cypher`](../setup/export-sample.cypher) or below) |
-| `example-1.png` … `example-3.png` | The three example questions: chat answer + tool calls from the Sessions tab |
-
-Query for `06-neo4j-graph.png`:
-```cypher
-MATCH (q:Artist {name:'Quincy Jones'})<-[r1:PRODUCED_BY]-(al:Album)
-OPTIONAL MATCH (b:Artist)-[r2:PLAYED_ON {instrument:'bass'}]->(al)
-RETURN q, r1, al, b, r2
-```
+| [`Music RAG - Ingestion.png`](Music%20RAG%20-%20Ingestion.png) | **Data ingestion** workflow, with sticky notes |
+| [`Music RAG - Tool_ music_search (vector).png`](Music%20RAG%20-%20Tool_%20music_search%20(vector).png) | **Vector retrieval** tool workflow |
+| [`Music RAG - Tool_ music_graph (graph).png`](Music%20RAG%20-%20Tool_%20music_graph%20(graph).png) | **Graph retrieval** tool workflow |
+| [`Agent_1.png`](Agent_1.png) | Agents builder: model and instructions |
+| [`Agent_2.png`](Agent_2.png) | Agents builder: the two connected workflow tools, skills, memory |
+| [`Neo4j_graph.png`](Neo4j_graph.png) | The music graph in Neo4j |
+| [`Neo4j_producer.png`](Neo4j_producer.png) | Producer network in Neo4j |
+| `example-1.png` … `example-3.png` | The three example questions (see [`../examples/`](../examples/example-questions.md)) |
