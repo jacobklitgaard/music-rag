@@ -1,6 +1,6 @@
 # Development prompts
 
-The system was built in dialogue with an AI assistant (Claude). These are the key prompts, translated from Danish and trimmed to their essence. Screenshots of the agent's tool connections are in [`../screenshots/`](../screenshots/).
+The system was built in dialogue with an AI assistant (Claude). These are the key prompts, trimmed to their essence. Screenshots of the agent's tool connections are in [`../screenshots/`](../screenshots/).
 
 ## Build prompts
 
