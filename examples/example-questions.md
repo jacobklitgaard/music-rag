@@ -121,8 +121,3 @@ https://musicbrainz.org/release/d2ee38b2-4c30-41c6-9844-4d8706543d64
 
 Possible fixes: add an instruction such as "if music_graph has no credit for the question, try music_search before saying you don't know", and enrich the graph with band membership (`MEMBER_OF` with instrument, available in MusicBrainz).
 
----
-
-## Observation across all three: the tool input name varies
-
-The trigger of `music_graph` defines the input as `name`, but the Agents builder sent the value as `query` (examples 1 and 2) and `album` (example 3). The first tool version read only `$json.name`, which caused the error `JSON Body … "name": }`. Version 2 reads `$json.name ?? $json.query ?? $json.input ?? Object.values($json)[0]`. Without that fallback, examples 1 and 3 would have failed.
